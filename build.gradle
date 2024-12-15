@@ -1,0 +1,76 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.4.0'
+	id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.testing'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21) // Ensure Java 21 is used
+	}
+}
+
+repositories {
+	mavenCentral() // Add Maven Central for dependencies
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa' // For Spring Data JPA
+	implementation 'org.springframework.boot:spring-boot-starter-web' // For building RESTful web services
+	developmentOnly 'org.springframework.boot:spring-boot-devtools' // For automatic restart and debugging
+	runtimeOnly 'com.h2database:h2' // For H2 database (used for testing and development)
+	testImplementation 'org.springframework.boot:spring-boot-starter-test' // For testing purposes
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher' // JUnit 5 support
+
+	testImplementation 'org.mockito:mockito-core'  // For mocking services
+}
+
+tasks.named('test') {
+	useJUnitPlatform() // Ensure JUnit 5 is used for testing
+}
+
+tasks.register('generateTests') {
+	doLast {
+		def srcDir = file('src/main/java') // Correct source directory for main Java files
+		def testDir = file('src/test/java') // Correct source directory for test Java files
+
+		srcDir.eachFileRecurse { file ->
+			if (file.name.endsWith('.java')) {
+				def className = file.path.replace(srcDir.path + File.separator, '').replace('.java', '').replace(File.separator, '.')
+				try {
+					def clazz = this.class.classLoader.loadClass(className)
+					if (!clazz.isInterface()) {
+						def testFilePath = testDir.path + File.separator + className.replace('.', File.separator) + 'Test.java'
+						def testFile = new File(testFilePath)
+						if (!testFile.exists()) {
+							testFile.parentFile.mkdirs()
+							testFile.withWriter { writer ->
+								writer.writeLine("package ${clazz.packageName};")
+								writer.writeLine()
+								writer.writeLine("import org.junit.jupiter.api.Test;")
+								writer.writeLine("import static org.junit.jupiter.api.Assertions.*;")
+								writer.writeLine()
+								writer.writeLine("public class ${clazz.simpleName}Test {")
+								clazz.methods.each { method ->
+									if (method.modifiers & java.lang.reflect.Modifier.PUBLIC) {
+										writer.writeLine("    @Test")
+										writer.writeLine("    public void ${method.name}Test() {")
+										writer.writeLine("        // TODO: Implement test for ${method.name}")
+										writer.writeLine("    }")
+										writer.writeLine()
+									}
+								}
+								writer.writeLine("}")
+							}
+						}
+					}
+				} catch (ClassNotFoundException e) {
+					println("Class not found: ${className}")
+				}
+			}
+		}
+	}
+}
